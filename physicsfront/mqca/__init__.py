@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+from . import experiment
+
 def qc_entangled_two_qubits (kind = 1, statevector = False, # <<<
                              measure = True):
     """
