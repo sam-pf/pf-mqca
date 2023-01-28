@@ -47,19 +47,17 @@ def qc_eavesdrop_qubit (name = 'evil_hacker'): # <<<
     return qc
 # >>>
 def qc_entangle_two_qubits (name = 'secret_quantume_key', kind = 1, # <<<
-                             statevector = False):
+                            statevector = False):
     """
     Creates a quantum circuit with entangled two qubits. The entanglement
     will be the maximum entanglement if ``kind`` is left as the default
     value, or chosen from four integer choices (0, 1, 2, 3).
 
-    :param name: This is the name of the register for the two qubits.  To
+    :param name:  This is the name of the register for the two qubits.  To
         disable the register, pass a false value.  To have two registers,
         instead of one, pass a 2-tuple of names.
 
-    :param kind: 0, 1 (default), 2, 3, or a 2-tuple in the form of
-        ([a,b],[c,d]), two normalized vectors, that will be used to
-        initialize the two qubits, before entangling them.
+    :param kind:  0, 1 (default), 2, 3.
 
         The four integer values correspond to the four Bell states prepared
         by this circuit through entanglement.
@@ -90,19 +88,19 @@ def qc_entangle_two_qubits (name = 'secret_quantume_key', kind = 1, # <<<
         args = [2]
     qc = QuantumCircuit (* args)
     if kind == 0: # symmetric Bell sate: |00> + |11>
-        iv0 = [1, 0]
-        iv1 = [1, 0]
+        iv0 = (1, 0)
+        iv1 = (1, 0)
     elif kind == 1: # EPR: -|01> + |10>
-        iv0 = [0, 1]
-        iv1 = [0, 1]
+        iv0 = (0, 1)
+        iv1 = (0, 1)
     elif kind == 2: # |00> - |11>
-        iv0 = [0, 1]
-        iv1 = [1, 0]
+        iv0 = (0, 1)
+        iv1 = (1, 0)
     elif kind == 3: # |01> + |10>
-        iv0 = [1, 0]
-        iv1 = [0, 1]
+        iv0 = (1, 0)
+        iv1 = (0, 1)
     else:
-        iv0, iv1 = kind
+        raise ValueError (f'Invalid value {kind!r} passed for kind.')
     qc.initialize (iv0, 0) # pylint: disable=E1101
     qc.initialize (iv1, 1) # pylint: disable=E1101
     qc.h (0)
@@ -152,7 +150,7 @@ def qc_for_random_bits (name = 'control', measure = 'random', # <<<
     else:
         measure_src = None
     qc = QuantumCircuit (* args)
-    qc.initialize ([1, 0], 0) # pylint: disable=E1101
+    qc.initialize ((100, 0), 0) # pylint: disable=E1101
     qc.h (0)
     if statevector:
         qc.save_statevector () # pylint: disable=E1101
@@ -185,7 +183,7 @@ def qc_measure_qubit (name = 'amal', basis = 'random'): # <<<
         qr1c = QuantumRegister (1, name = name + '_prepares')
         cr1c = ClassicalRegister (1, name = name + '_prep_bit')
         qc = QuantumCircuit (qr1, qr1c, cr1c, cr1)
-        qc.initialize ([1, 0], qr1c) # pylint: disable=E1101
+        qc.initialize ((100, 0), qr1c) # pylint: disable=E1101
         qc.h (qr1c)
         qc.measure (qr1c, cr1c)
         qc.h (qr1).c_if (cr1c, 1) # dynamic circuit
