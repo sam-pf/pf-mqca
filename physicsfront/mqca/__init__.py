@@ -19,6 +19,7 @@ from . import experiment
 def qc_bb84 (source_name = 'secret_quantume_key', party1 = 'amar', # <<<
              party2 = 'juan', party3 = 'evil_hacker', basis12 = 'random',
              barrier = True):
+    dargs = dict (** locals ())
     qc = qc_entangle_two_qubits (name = source_name)
     qc1 = qc_measure_qubit (name = party1, basis = basis12)
     qc2 = qc_measure_qubit (name = party2, basis = basis12)
@@ -29,7 +30,9 @@ def qc_bb84 (source_name = 'secret_quantume_key', party1 = 'amar', # <<<
     instructions.append ({'qc': qc1, 'wiring': [(0, 0)], 'barrier': barrier})
     instructions.append (((qc2, [(1, 0)]), {'barrier': barrier}))
     from physicsfront.qiskit import wire # pylint: disable=E0401,E0611
-    return wire (qc, * instructions)
+    ans = wire (qc, * instructions)
+    ans._dargs = dargs
+    return ans
 # >>>
 def qc_eavesdrop_qubit (name = 'evil_hacker'): # <<<
     """
@@ -39,11 +42,13 @@ def qc_eavesdrop_qubit (name = 'evil_hacker'): # <<<
     (and thus will be modified by measurement), and a classical register of
     length 1, which stores the measurment outcome.
     """
+    dargs = dict (** locals ())
     from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
     qr = QuantumRegister (1, name = name + '_qubit')
     cr = ClassicalRegister (1, name = name + '_listens')
     qc = QuantumCircuit (qr, cr)
     qc.measure (qr, cr)
+    qc._dargs = dargs
     return qc
 # >>>
 def qc_entangle_two_qubits (name = 'secret_quantume_key', kind = 1, # <<<
@@ -72,6 +77,7 @@ def qc_entangle_two_qubits (name = 'secret_quantume_key', kind = 1, # <<<
     :param statevector:  Only for simulator run.  The state vector will be
         saved after initialization.
     """
+    dargs = dict (** locals ())
     from qiskit import QuantumCircuit, QuantumRegister # pylint: disable=W0406,E0611
     if statevector:
         # This is for 'qc.save_statevector'.
@@ -111,6 +117,7 @@ def qc_entangle_two_qubits (name = 'secret_quantume_key', kind = 1, # <<<
         # Later, do 'j.result ().get_statevector ()' where j is job (returned
         # by run_quantum_simulator)
         ##
+    qc._dargs = dargs
     return qc
 # >>>
 def qc_for_random_bits (name = 'control', measure = 'random', # <<<
@@ -132,6 +139,7 @@ def qc_for_random_bits (name = 'control', measure = 'random', # <<<
 
         To disable the measurement, pass any false value.
     """
+    dargs = dict (** locals ())
     from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister # pylint: disable=W0406,E0611
     if statevector:
         # This is for 'qc.save_statevector'.
@@ -150,7 +158,7 @@ def qc_for_random_bits (name = 'control', measure = 'random', # <<<
     else:
         measure_src = None
     qc = QuantumCircuit (* args)
-    qc.initialize ((100, 0), 0) # pylint: disable=E1101
+    qc.initialize ('[100 %, 0 %]', 0) # pylint: disable=E1101
     qc.h (0)
     if statevector:
         qc.save_statevector () # pylint: disable=E1101
@@ -159,6 +167,7 @@ def qc_for_random_bits (name = 'control', measure = 'random', # <<<
             qc.measure_all ()
         else:
             qc.measure (measure_src, measure_tgt)
+    qc._dargs = dargs
     return qc
 # >>>
 def qc_measure_qubit (name = 'amal', basis = 'random'): # <<<
@@ -176,6 +185,7 @@ def qc_measure_qubit (name = 'amal', basis = 'random'): # <<<
     this bit is true, then the 'x' basis applies, while when this bit is
     false, then the 'z' basis applies.
     """
+    dargs = dict (** locals ())
     from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
     qr1 = QuantumRegister (1, name = name + '_qubit')
     cr1 = ClassicalRegister (1, name = name + '_receives')
@@ -183,7 +193,7 @@ def qc_measure_qubit (name = 'amal', basis = 'random'): # <<<
         qr1c = QuantumRegister (1, name = name + '_prepares')
         cr1c = ClassicalRegister (1, name = name + '_prep_bit')
         qc = QuantumCircuit (qr1, qr1c, cr1c, cr1)
-        qc.initialize ((100, 0), qr1c) # pylint: disable=E1101
+        qc.initialize ('[100 %, 0 %]', qr1c) # pylint: disable=E1101
         qc.h (qr1c)
         qc.measure (qr1c, cr1c)
         qc.h (qr1).c_if (cr1c, 1) # dynamic circuit
@@ -196,5 +206,6 @@ def qc_measure_qubit (name = 'amal', basis = 'random'): # <<<
         raise ValueError ("Invalid value for basis: not one of 'z', 'x', "
                           "'random'")
     qc.measure (qr1, cr1)
+    qc._dargs = dargs
     return qc
 # >>>
