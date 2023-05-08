@@ -14,14 +14,132 @@
 # limitations under the License.
 ##
 
-Run = __import__ ('collections').namedtuple ('Run', 'qc job result memory counts')
+class Run (object): # <<<
+
+    def __init__ (self, qc, job, take_value_if_single = False):
+        assert type (qc) is tuple
+        assert type (job) is tuple
+        assert len (qc) == len (job)
+        self._qc = qc
+        self._job = job
+        self._take_value_if_single = take_value_if_single
+        self._result = self._memory = self._counts = None
+
+    def __len__ (self):
+        return len (self._qc)
+
+    def _get_prop_value (self, a, required = False):
+        if not required and a is None:
+            return
+        assert type (a) is tuple
+        assert len (a) == len (self)
+        if self._take_value_if_single and len (a) == 1:
+            return a [0]
+        return a
+
+    @property
+    def counts (self):
+        return self._get_prop_value (self._counts)
+
+    @property
+    def job (self):
+        return self._get_prop_value (self._job, required = True)
+
+    @property
+    def memory (self):
+        return self._get_prop_value (self._memory)
+
+    @property
+    def qc (self):
+        return self._get_prop_value (self._qc, required = True)
+
+    @property
+    def result (self):
+        return self._get_prop_value (self._result)
+
+    @property
+    def is_finalized (self):
+        r = self._result
+        m = self._memory
+        c = self._counts
+        if r is None and m is None and c is None:
+            return False
+        elif r is not None and m is not None and c is not None:
+            return True
+        else:
+            raise ValueError ("** Error: final props are partially assigned.")
+
+    def finalize (self, keys = None, redo = False): # <<<
+        """
+        Gets the final result for this run.
+
+        When finalized, all three properties, ``result``, ``memory``, and
+        ``counts`` will return non-``None`` values.
+
+        :param keys:  Passed to :func:`~physicsfront.qiskit.gather_counts`
+            when collecting counts after collecting run results.
+        """
+        from physicsfront.qiskit import gather_counts # pylint: disable=E0401
+        import sys
+        jobs = self._job
+        for job in jobs:
+            status = job.status ()
+            if status.name != 'DONE':
+                # pylint: disable=W0719
+                raise Exception ("Can't get result for a job with status = "
+                                 f"{status}.")
+        if self.is_finalized and not redo:
+            print ("""This Run object has already been finalized.
+There is nothing to do.
+
+To re-finalize, you can pass a true value for the 'redo' argument.""",
+                   file = sys.stderr)
+            return
+        # TODO: add an option to customize this getter
+        def get_clspecs_predicate (qc):
+            dargs = getattr (qc, '_dargs', {})
+            clspecs = ()
+            predicate = None
+            if 'party1' in dargs and 'party2' in dargs:
+                clspecs = (dargs ['party1'] + '_rec', dargs ['party2'] +
+                           '_rec')
+                if dargs.get ('basis12') == 'random':
+                    predicate = (dargs ['party1'] + '_pre| == ' +
+                                 dargs ['party2'] + '_pre|')
+            return clspecs, predicate
+        qc = self._qc
+        r = tuple (job.result () for job in jobs)
+        m = tuple (res.get_memory () for res in r)
+        cp = tuple (get_clspecs_predicate (q) for q in qc)
+        ##
+        # counts are functions (lambda forms); maybe keys can be retweaked
+        # later on?
+        ##
+        counts = tuple ((lambda clspecs = c_p [0], predicate = c_p [1],
+                         keys = keys, res = res: gather_counts (res, * clspecs,
+                         predicate = predicate, keys = keys))
+                        for c_p, res in zip (cp, r))
+        self._result = r
+        self._memory = m
+        self._counts = counts
+    # >>>
+    def monitor (self): # <<<
+        import sys
+        if self.is_finalized:
+            print ("This Run has been finalized already (nothing to monitor).",
+                   file = sys.stderr)
+            return
+        from physicsfront.qiskit import jobs_monitor # pylint: disable=E0401
+        return jobs_monitor (self._job)
+    # >>>
+
+# >>>
 
 def bb84 (source_name = 'secret_quantume_key', # <<< pylint: disable=W0613
           party1 = 'amar', party2 = 'juan', # pylint: disable=W0613
           party3 = 'evil_hacker', basis12 = 'random', # pylint: disable=W0613
           barrier = 'auto', simulate = True,
-          shots = 10000, seed = 100, keys = None, # pylint: disable=W0613
-          job = None): # pylint: disable=W0613
+          shots = 10000, seed = 100): # pylint: disable=W0613
     """
     Sets up a BB84 experiment, runs it using :func:`run`, and returns the
     result.
@@ -52,7 +170,7 @@ def bb84 (source_name = 'secret_quantume_key', # <<< pylint: disable=W0613
         print ("** WARNING: barrier is set for quantum computer run---this "
                "can easily produce an unexpected result.", file = sys.stderr)
     dargs2 = dict ((k, dargs1.pop (k)) for k
-                   in ('simulate', 'shots', 'seed', 'keys', 'job'))
+                   in ('simulate', 'shots', 'seed'))
     from physicsfront.mqca import qc_bb84 # pylint: disable=E0401,E0611
     if not simulate and basis12 == 'random':
         # workaround (since qasm3 (dynamic circuit) does not work yet)
@@ -64,74 +182,33 @@ def bb84 (source_name = 'secret_quantume_key', # <<< pylint: disable=W0613
         qc = qc_bb84 (** dargs1)
     return run (qc, ** dargs2)
 # >>>
-def run (qc, simulate = True, shots = 10000, seed = 100, keys = None, # <<<
-         job = None):
+def run (qc, simulate = True, shots = 10000, seed = 100): # <<<
     """
     Runs ``qc`` (which can be a quantum circuit or a tuple/list of quantum
-    circuits) and returns a :func:`~collections.namedtuple` :const:`Run`
-    instance.
+    circuits) and returns a tuple of submitted jobs.
 
-    A :const:`Run` instance contains fields 'qc', 'job', 'result', 'memory',
-    'counts'.  If the input ``qc`` is a tuple/list, then all fields will
-    hold tuple values.  Else, all fields will hold appropriate single object
-    values.
-
-    :param job:  If provided, then it must be a job or a sequence of jobs
-        corresponding one-to-one to ``qc``.  In this case, the three
-        arguments ``simulate``, ``shots``, and ``seed`` are not used since
-        they are used only when jobs are created anew.
-
-    :param keys:  Passed to :func:`~physicsfront.qiskit.gather_counts` when
-        collecting counts after collecting run results.
+    Returns a :class:`Run` instance that must be finalized to get results
+    when it is know that all jobs finished successfully.
     """
     # pylint: disable=E0401,E0611,W0611
-    from physicsfront.qiskit import (gather_counts, run_quantum_computer,
+    from physicsfront.qiskit import (run_quantum_computer,
                                      run_quantum_simulator)
     from collections import Counter
     from random import randint
-    def get_clspecs_predicate (qc):
-        dargs = getattr (qc, '_dargs', {})
-        clspecs = ()
-        predicate = None
-        if 'party1' in dargs and 'party2' in dargs:
-            clspecs = (dargs ['party1'] + '_rec', dargs ['party2'] + '_rec')
-            if dargs.get ('basis12') == 'random':
-                predicate = (dargs ['party1'] + '_pre| == ' +
-                             dargs ['party2'] + '_pre|')
-        return clspecs, predicate
     shots_counter = None
-    multiple_qc = isinstance (qc, (tuple, list))
-    if multiple_qc:
+    as_tuple = isinstance (qc, (tuple, list))
+    if as_tuple:
         qc = tuple (qc)
         N = len (qc) - 1
         assert N >= 0
-        cp = tuple (get_clspecs_predicate (q) for q in qc)
-        if job is None:
-            shots_counter = Counter (randint (0, N) for i in range (shots))
+        shots_counter = Counter (randint (0, N) for i in range (shots))
     else:
-        cp = (get_clspecs_predicate (qc),)
         qc = (qc,)
-        if job is None:
-            shots_counter = Counter ({0: shots})
-        else:
-            job = (job,)
+        shots_counter = Counter ({0: shots})
     # pylint: enable=E0401,E0611,W0611
     dargs_runf = {'seed': seed} if simulate else {}
     runf = run_quantum_simulator if simulate else run_quantum_computer
-    if job is None:
-        j = tuple (runf (q, shots = shots_counter [i], ** dargs_runf)
-                   for i, q in enumerate (qc))
-    else:
-        assert len (job) == len (qc)
-        j = tuple (job)
-    r = tuple (job.result () for job in j)
-    m = tuple (res.get_memory () for res in r)
-    counts = tuple ((lambda clspecs = c_p [0], predicate = c_p [1],
-                     keys = keys, res = res: gather_counts (res, * clspecs,
-                     predicate = predicate, keys = keys))
-                    for c_p, res in zip (cp, r))
-    args = qc, j, r, m, counts
-    if multiple_qc:
-        return Run (* args)
-    return Run (* (a [0] for a in args))
+    jobs = tuple (runf (q, shots = shots_counter [i], ** dargs_runf)
+                  for i, q in enumerate (qc))
+    return Run (qc, jobs, take_value_if_single = not as_tuple)
 # >>>
