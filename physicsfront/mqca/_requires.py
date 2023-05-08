@@ -3,7 +3,7 @@
 # google colab as well as terminal based ipython.
 ##
 dependencies = [
-    "physicsfront-qiskit >= 0.1.1",
+    "physicsfront-qiskit >= 0.1.6",
 ]
 extras = {
     "mpl": [
