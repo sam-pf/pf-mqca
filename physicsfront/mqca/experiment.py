@@ -87,7 +87,7 @@ class Run (object): # <<<
             if status.name != 'DONE':
                 # pylint: disable=W0719
                 raise Exception ("Can't get result for a job with status = "
-                                 f"{status}.")
+                                 f"{status.name}.")
         if self.is_finalized and not redo:
             print ("""This Run object has already been finalized.
 There is nothing to do.
